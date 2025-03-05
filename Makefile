@@ -19,3 +19,6 @@ lint: ## Run linter
 
 docker: ## Build docker
 	docker build --platform linux/$(shell uname -m) --ssh default -t $(APPLICATION_NAME):${VERSION} . -f Dockerfile
+
+generate-sql: ## Generate SQL
+	sqlc generate

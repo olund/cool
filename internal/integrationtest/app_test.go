@@ -6,6 +6,7 @@ import (
 	"github.com/olund/cool/internal"
 	"github.com/olund/cool/internal/config"
 	"github.com/steinfletcher/apitest"
+	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"log/slog"
 	"net/http"
 	"os"
@@ -27,11 +28,37 @@ func TestMain(m *testing.M) {
 
 	app := internal.NewApp()
 
+	postgresContainer, err := postgres.Run(ctx,
+		"postgres:16-alpine",
+		postgres.WithDatabase("test"),
+		postgres.WithUsername("user"),
+		postgres.WithPassword("password"),
+	)
+
+	if err != nil {
+		panic(err)
+	}
+
+	slog.InfoContext(ctx, "Postgres container started", "connection string", postgresContainer.MustConnectionString(ctx))
+
+	getenv := func(key string) string {
+		switch key {
+		case "POSTGRES_CONNECTION_STRING":
+			return postgresContainer.MustConnectionString(ctx)
+		case "MIGRATIONS_DIR":
+			return "../migrations"
+		default:
+			return ""
+		}
+	}
+
+	<-time.After(5 * time.Second)
+
 	go func() {
-		err := app.Run(ctx, os.Stdout, nil, cfg)
+		err := app.Run(ctx, os.Stdout, getenv, cfg)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "app run: %s\n", err)
-			return
+			os.Exit(1)
 		}
 	}()
 

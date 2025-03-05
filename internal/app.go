@@ -4,8 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	ownhttp "github.com/olund/cool/internal/adapter/in/http"
+	"github.com/olund/cool/internal/adapter/out/postgres"
 	"github.com/olund/cool/internal/config"
+	"github.com/olund/cool/internal/migrations"
 	"io"
 	"log"
 	"net"
@@ -24,9 +28,40 @@ func NewApp() *App {
 	return &App{}
 }
 
-func (a *App) Run(ctx context.Context, w io.Writer, args []string, config config.Config) error {
+func (a *App) Run(ctx context.Context, w io.Writer, getenv func(string) string, config config.Config) error {
 	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt)
 	defer cancel()
+
+	// DB
+	connectionString := getenv("POSTGRES_CONNECTION_STRING")
+	if err := migrations.Run(ctx, connectionString, getenv("MIGRATIONS_DIR")); err != nil {
+		return err
+	}
+
+	conn, err := pgx.Connect(ctx, connectionString)
+	if err != nil {
+		return err
+	}
+	defer conn.Close(ctx)
+
+	queries := postgres.New(conn)
+
+	// list all authors
+	authors, err := queries.ListAuthors(ctx)
+	if err != nil {
+		return err
+	}
+	log.Println(authors)
+
+	// create an author
+	insertedAuthor, err := queries.CreateAuthor(ctx, postgres.CreateAuthorParams{
+		Name: "Brian Kernighan",
+		Bio:  pgtype.Text{String: "Co-author of The C Programming Language and The Go Programming Language", Valid: true},
+	})
+	if err != nil {
+		return err
+	}
+	log.Println(insertedAuthor)
 
 	server := ownhttp.NewServer()
 
