@@ -6,6 +6,7 @@ import (
 	"github.com/olund/cool/internal"
 	"github.com/olund/cool/internal/config"
 	"github.com/steinfletcher/apitest"
+	"github.com/stretchr/testify/assert"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"log/slog"
 	"net/http"
@@ -86,48 +87,42 @@ func TestApp_HelloWorld(t *testing.T) {
 
 }
 
-// waitForReady calls the specified endpoint until it gets a 200
-// response or until the context is cancelled or the timeout is
-// reached.
-func waitForReady(
-	ctx context.Context,
-	timeout time.Duration,
-	endpoint string,
-) error {
-	client := http.Client{}
-	startTime := time.Now()
-	for {
-		req, err := http.NewRequestWithContext(
-			ctx,
-			http.MethodGet,
-			endpoint,
-			nil,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to create request: %w", err)
+func TestApp_Authors(t *testing.T) {
+
+	t.Run("Create one author, and then get it by id", func(t *testing.T) {
+		type authorRequest struct {
+			Name string `json:"name"`
+			Bio  string `json:"bio"`
+		}
+		type authorResponse struct {
+			Id   int64  `json:"id"`
+			Name string `json:"name"`
+			Bio  string `json:"bio"`
 		}
 
-		resp, err := client.Do(req)
-		if err != nil {
-			fmt.Printf("Error making request: %s\n", err.Error())
-			continue
+		body := authorRequest{
+			Name: "test1",
+			Bio:  "Neque porro quisquam est qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit",
 		}
-		if resp.StatusCode == http.StatusOK {
-			slog.DebugContext(ctx, "Endpoint is ready!")
-			resp.Body.Close()
-			return nil
-		}
-		resp.Body.Close()
 
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-			if time.Since(startTime) >= timeout {
-				return fmt.Errorf("timeout reached while waiting for endpoint")
-			}
-			// wait a little while between checks
-			time.Sleep(250 * time.Millisecond)
-		}
-	}
+		responseBody := authorResponse{}
+		apitest.New().
+			EnableNetworking(http.DefaultClient).
+			Postf("http://%s:%s/author", cfg.Host, cfg.Port).
+			JSON(body).
+			Expect(t).
+			Status(http.StatusCreated).
+			End().JSON(&responseBody)
+
+		assert.NotEmpty(t, responseBody.Id)
+
+		apitest.New().
+			EnableNetworking(http.DefaultClient).
+			Getf("http://%s:%s/author/%d", cfg.Host, cfg.Port, responseBody.Id).
+			JSON(body).
+			Expect(t).
+			Status(http.StatusOK).
+			End()
+	})
+
 }

@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	ownhttp "github.com/olund/cool/internal/adapter/in/http"
-	"github.com/olund/cool/internal/adapter/out/postgres"
+	"github.com/olund/cool/internal/adapter/out/postgres/author"
 	"github.com/olund/cool/internal/config"
+	"github.com/olund/cool/internal/core/service"
 	"github.com/olund/cool/internal/migrations"
 	"io"
 	"log"
@@ -44,26 +44,12 @@ func (a *App) Run(ctx context.Context, w io.Writer, getenv func(string) string, 
 	}
 	defer conn.Close(ctx)
 
-	queries := postgres.New(conn)
+	authorDb := author.New(conn)
 
-	// list all authors
-	authors, err := queries.ListAuthors(ctx)
-	if err != nil {
-		return err
-	}
-	log.Println(authors)
-
-	// create an author
-	insertedAuthor, err := queries.CreateAuthor(ctx, postgres.CreateAuthorParams{
-		Name: "Brian Kernighan",
-		Bio:  pgtype.Text{String: "Co-author of The C Programming Language and The Go Programming Language", Valid: true},
-	})
-	if err != nil {
-		return err
-	}
-	log.Println(insertedAuthor)
-
-	server := ownhttp.NewServer()
+	authorStore := author.NewAuthorStore(authorDb)
+	authorService := service.NewAuthorService(authorStore)
+	
+	server := ownhttp.NewServer(authorService)
 
 	httpServer := &http.Server{
 		Addr:    net.JoinHostPort(config.Host, config.Port),

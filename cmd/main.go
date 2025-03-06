@@ -18,7 +18,16 @@ func main() {
 		Port: "8080",
 	}
 
-	if err := app.Run(ctx, os.Stdout, os.Args, cfg); err != nil {
+	getenv := func(s string) string {
+		switch s {
+		case "POSTGRES_CONNECTION_STRING":
+			return "postgresql://postgres:mysecretpassword@localhost:5432/postgres"
+		}
+
+		return s
+	}
+
+	if err := app.Run(ctx, os.Stdout, getenv, cfg); err != nil {
 		_, err := fmt.Fprintf(os.Stderr, "%s\n", err)
 		if err != nil {
 			return
