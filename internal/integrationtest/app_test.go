@@ -8,7 +8,6 @@ import (
 	"github.com/steinfletcher/apitest"
 	"github.com/stretchr/testify/assert"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
-	"log/slog"
 	"net/http"
 	"os"
 	"testing"
@@ -39,8 +38,6 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic(err)
 	}
-
-	slog.InfoContext(ctx, "Postgres container started", "connection string", postgresContainer.MustConnectionString(ctx))
 
 	getenv := func(key string) string {
 		switch key {
@@ -89,6 +86,40 @@ func TestApp_HelloWorld(t *testing.T) {
 
 func TestApp_Authors(t *testing.T) {
 
+	t.Run("Create authors - no name - bad request", func(t *testing.T) {
+		requestBodyWithoutName := struct {
+			Bio string `json:"bio"`
+		}{
+			Bio: "Neque porro quisquam est qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit",
+		}
+
+		apitest.New().
+			EnableNetworking(http.DefaultClient).
+			Postf("http://%s:%s/author", cfg.Host, cfg.Port).
+			JSON(requestBodyWithoutName).
+			Expect(t).
+			Status(http.StatusBadRequest).
+			Body(`{"error":"Bad Request"}`).
+			End()
+	})
+
+	t.Run("Create authors - no bio - bad request", func(t *testing.T) {
+		requestBodyWithoutName := struct {
+			Name string `json:"name"`
+		}{
+			Name: "a name",
+		}
+
+		apitest.New().
+			EnableNetworking(http.DefaultClient).
+			Postf("http://%s:%s/author", cfg.Host, cfg.Port).
+			JSON(requestBodyWithoutName).
+			Expect(t).
+			Status(http.StatusBadRequest).
+			Body(`{"error":"Bad Request"}`).
+			End()
+	})
+
 	t.Run("Create one author, and then get it by id", func(t *testing.T) {
 		type authorRequest struct {
 			Name string `json:"name"`
@@ -105,24 +136,29 @@ func TestApp_Authors(t *testing.T) {
 			Bio:  "Neque porro quisquam est qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit",
 		}
 
-		responseBody := authorResponse{}
+		createResponseBody := authorResponse{}
 		apitest.New().
 			EnableNetworking(http.DefaultClient).
 			Postf("http://%s:%s/author", cfg.Host, cfg.Port).
 			JSON(body).
 			Expect(t).
 			Status(http.StatusCreated).
-			End().JSON(&responseBody)
+			End().JSON(&createResponseBody)
 
-		assert.NotEmpty(t, responseBody.Id)
+		assert.NotEmpty(t, createResponseBody.Id)
+		assert.Equal(t, createResponseBody.Name, body.Name)
+		assert.Equal(t, createResponseBody.Bio, body.Bio)
 
+		getByIdResponseBody := authorResponse{}
 		apitest.New().
 			EnableNetworking(http.DefaultClient).
-			Getf("http://%s:%s/author/%d", cfg.Host, cfg.Port, responseBody.Id).
+			Getf("http://%s:%s/author/%d", cfg.Host, cfg.Port, createResponseBody.Id).
 			JSON(body).
 			Expect(t).
 			Status(http.StatusOK).
-			End()
+			End().JSON(&getByIdResponseBody)
+
+		assert.Equal(t, createResponseBody, getByIdResponseBody)
 	})
 
 }

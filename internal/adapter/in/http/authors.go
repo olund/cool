@@ -36,7 +36,16 @@ func GetAuthorById(authors ports.Authors) func(w http.ResponseWriter, r *http.Re
 func CreateAuthor(authors ports.Authors) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		createAuthorRequest, err := decode[domain.CreateAuthorRequest](r)
+		createAuthorRequest, problems, err := decodeValid[domain.CreateAuthorRequest](r)
+
+		if len(problems) > 0 {
+			slog.WarnContext(r.Context(), "CreateAuthor", "problems", problems)
+			if err := encode(w, r, http.StatusBadRequest, HttpError{Error: "Bad Request"}); err != nil {
+				slog.ErrorContext(r.Context(), "CreateAuthor", "error", err)
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			}
+			return
+		}
 
 		author, err := authors.Create(r.Context(), createAuthorRequest)
 		if err != nil {

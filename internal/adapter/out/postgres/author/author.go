@@ -25,6 +25,7 @@ func (s *AuthorStore) Insert(ctx context.Context, author domain.CreateAuthorRequ
 		Name: author.Name,
 		Bio: pgtype.Text{
 			String: author.Bio,
+			Valid:  true,
 		},
 	})
 	if err != nil {

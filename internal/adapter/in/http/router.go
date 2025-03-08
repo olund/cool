@@ -13,8 +13,8 @@ func NewServer(authors ports.Authors) http.Handler {
 	mux.HandleFunc("GET /hello", GetHelloWorld())
 
 	// Authors
-	mux.HandleFunc("POST /author", CreateAuthor(authors))
-	mux.HandleFunc("GET /author/{id}", GetAuthorById(authors))
+	mux.HandleFunc("POST /author", LoggingMiddleware(CreateAuthor(authors)))
+	mux.HandleFunc("GET /author/{id}", LoggingMiddleware(GetAuthorById(authors)))
 
 	return mux
 }
