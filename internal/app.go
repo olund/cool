@@ -40,7 +40,7 @@ func (a *App) Run(ctx context.Context, w io.Writer, getenv func(string) string, 
 		return err
 	}
 
-	if err := migrations.Run(db, getenv("MIGRATIONS_DIR")); err != nil {
+	if err := migrations.Run(ctx, db, getenv("MIGRATIONS_DIR")); err != nil {
 		return err
 	}
 
