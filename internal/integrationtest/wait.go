@@ -31,7 +31,7 @@ func waitForReady(
 
 		resp, err := client.Do(req)
 		if err != nil {
-			fmt.Print("Application is not up yet. Error making request")
+			fmt.Println("Application is not up yet. Error making request")
 
 			// wait a little while between checks
 			time.Sleep(50 * time.Millisecond)

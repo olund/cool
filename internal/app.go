@@ -2,14 +2,9 @@ package internal
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/jackc/pgx/v5"
-	ownhttp "github.com/olund/cool/internal/adapter/in/http"
-	"github.com/olund/cool/internal/adapter/out/postgres/todo"
-	"github.com/olund/cool/internal/config"
-	"github.com/olund/cool/internal/core/service"
-	"github.com/olund/cool/internal/migrations"
 	"io"
 	"log"
 	"net"
@@ -18,6 +13,13 @@ import (
 	"os/signal"
 	"sync"
 	"time"
+
+	ownhttp "github.com/olund/cool/internal/adapter/in/http"
+	"github.com/olund/cool/internal/adapter/out/sqlite/todo"
+	"github.com/olund/cool/internal/config"
+	"github.com/olund/cool/internal/core/service"
+	"github.com/olund/cool/internal/migrations"
+	_ "modernc.org/sqlite"
 )
 
 type App struct {
@@ -33,18 +35,16 @@ func (a *App) Run(ctx context.Context, w io.Writer, getenv func(string) string, 
 	defer cancel()
 
 	// DB
-	connectionString := getenv("POSTGRES_CONNECTION_STRING")
-	if err := migrations.Run(ctx, connectionString, getenv("MIGRATIONS_DIR")); err != nil {
-		return err
-	}
-
-	conn, err := pgx.Connect(ctx, connectionString)
+	db, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		return err
 	}
-	defer conn.Close(ctx)
 
-	todoDb := todo.New(conn)
+	if err := migrations.Run(db, getenv("MIGRATIONS_DIR")); err != nil {
+		return err
+	}
+
+	todoDb := todo.New(db)
 
 	todoStore := todo.NewTodoStore(todoDb)
 	todoService := service.NewTodoService(todoStore)

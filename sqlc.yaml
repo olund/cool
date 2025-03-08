@@ -1,10 +1,18 @@
 version: "2"
 sql:
-  - engine: "postgresql"
+  - engine: "sqlite"
     queries: "query.sql"
     schema: "internal/migrations/"
     gen:
       go:
         package: "todo"
-        out: "internal/adapter/out/postgres/todo"
-        sql_package: "pgx/v5"
+        out: "internal/adapter/out/sqlite/todo"
+
+#  - engine: "postgresql"
+#    queries: "query.sql"
+#    schema: "internal/migrations/"
+#    gen:
+#      go:
+#        package: "todo"
+#        out: "internal/adapter/out/postgres/todo"
+#        sql_package: "pgx/v5"

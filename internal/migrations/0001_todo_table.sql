@@ -1,7 +1,7 @@
 -- +goose Up
 CREATE TABLE todo
 (
-    id          BIGSERIAL PRIMARY KEY,
+    id          INTEGER PRIMARY KEY,
     name        text NOT NULL,
     description text,
     done        boolean

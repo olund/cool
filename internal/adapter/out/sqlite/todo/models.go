@@ -5,12 +5,12 @@
 package todo
 
 import (
-	"github.com/jackc/pgx/v5/pgtype"
+	"database/sql"
 )
 
 type Todo struct {
 	ID          int64
 	Name        string
-	Description pgtype.Text
-	Done        pgtype.Bool
+	Description sql.NullString
+	Done        sql.NullBool
 }

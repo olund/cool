@@ -7,26 +7,25 @@ package todo
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgtype"
+	"database/sql"
 )
 
 const createTodo = `-- name: CreateTodo :one
 INSERT INTO todo (
     name, description
 ) VALUES (
-             $1, $2
+             ?, ?
          )
     RETURNING id, name, description, done
 `
 
 type CreateTodoParams struct {
 	Name        string
-	Description pgtype.Text
+	Description sql.NullString
 }
 
 func (q *Queries) CreateTodo(ctx context.Context, arg CreateTodoParams) (Todo, error) {
-	row := q.db.QueryRow(ctx, createTodo, arg.Name, arg.Description)
+	row := q.db.QueryRowContext(ctx, createTodo, arg.Name, arg.Description)
 	var i Todo
 	err := row.Scan(
 		&i.ID,
@@ -39,21 +38,21 @@ func (q *Queries) CreateTodo(ctx context.Context, arg CreateTodoParams) (Todo, e
 
 const deleteTodo = `-- name: DeleteTodo :exec
 DELETE FROM todo
-WHERE id = $1
+WHERE id = ?
 `
 
 func (q *Queries) DeleteTodo(ctx context.Context, id int64) error {
-	_, err := q.db.Exec(ctx, deleteTodo, id)
+	_, err := q.db.ExecContext(ctx, deleteTodo, id)
 	return err
 }
 
 const getTodo = `-- name: GetTodo :one
 SELECT id, name, description, done FROM todo
-WHERE id = $1 LIMIT 1
+WHERE id = ? LIMIT 1
 `
 
 func (q *Queries) GetTodo(ctx context.Context, id int64) (Todo, error) {
-	row := q.db.QueryRow(ctx, getTodo, id)
+	row := q.db.QueryRowContext(ctx, getTodo, id)
 	var i Todo
 	err := row.Scan(
 		&i.ID,
@@ -70,7 +69,7 @@ ORDER BY name
 `
 
 func (q *Queries) ListTodos(ctx context.Context) ([]Todo, error) {
-	rows, err := q.db.Query(ctx, listTodos)
+	rows, err := q.db.QueryContext(ctx, listTodos)
 	if err != nil {
 		return nil, err
 	}
@@ -88,6 +87,9 @@ func (q *Queries) ListTodos(ctx context.Context) ([]Todo, error) {
 		}
 		items = append(items, i)
 	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -96,25 +98,25 @@ func (q *Queries) ListTodos(ctx context.Context) ([]Todo, error) {
 
 const updateTodo = `-- name: UpdateTodo :exec
 UPDATE todo
-set name = $2,
-    description = $3,
-    done = $4
-WHERE id = $1
+set name = ?,
+    description = ?,
+    done = ?
+WHERE id = ?
 `
 
 type UpdateTodoParams struct {
-	ID          int64
 	Name        string
-	Description pgtype.Text
-	Done        pgtype.Bool
+	Description sql.NullString
+	Done        sql.NullBool
+	ID          int64
 }
 
 func (q *Queries) UpdateTodo(ctx context.Context, arg UpdateTodoParams) error {
-	_, err := q.db.Exec(ctx, updateTodo,
-		arg.ID,
+	_, err := q.db.ExecContext(ctx, updateTodo,
 		arg.Name,
 		arg.Description,
 		arg.Done,
+		arg.ID,
 	)
 	return err
 }

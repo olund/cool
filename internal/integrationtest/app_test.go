@@ -7,7 +7,6 @@ import (
 	"github.com/olund/cool/internal/config"
 	"github.com/steinfletcher/apitest"
 	"github.com/stretchr/testify/assert"
-	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"net/http"
 	"os"
 	"testing"
@@ -28,21 +27,8 @@ func TestMain(m *testing.M) {
 
 	app := internal.NewApp()
 
-	postgresContainer, err := postgres.Run(ctx,
-		"postgres:17-alpine",
-		postgres.WithDatabase("test"),
-		postgres.WithUsername("user"),
-		postgres.WithPassword("password"),
-	)
-
-	if err != nil {
-		panic(err)
-	}
-
 	getenv := func(key string) string {
 		switch key {
-		case "POSTGRES_CONNECTION_STRING":
-			return postgresContainer.MustConnectionString(ctx)
 		case "MIGRATIONS_DIR":
 			return "../migrations"
 		default:

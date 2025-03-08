@@ -2,8 +2,7 @@ package todo
 
 import (
 	"context"
-	"github.com/jackc/pgx/v5/pgtype"
-
+	"database/sql"
 	"github.com/olund/cool/internal/core/domain"
 	"github.com/olund/cool/internal/core/ports"
 )
@@ -23,7 +22,7 @@ func NewTodoStore(queries *Queries) *TodoStore {
 func (s *TodoStore) Insert(ctx context.Context, request domain.CreateTodoRequest) (domain.Todo, error) {
 	created, err := s.queries.CreateTodo(ctx, CreateTodoParams{
 		Name: request.Name,
-		Description: pgtype.Text{
+		Description: sql.NullString{
 			String: request.Description,
 			Valid:  true,
 		},
