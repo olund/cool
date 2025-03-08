@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	ownhttp "github.com/olund/cool/internal/adapter/in/http"
-	"github.com/olund/cool/internal/adapter/out/postgres/author"
+	"github.com/olund/cool/internal/adapter/out/postgres/todo"
 	"github.com/olund/cool/internal/config"
 	"github.com/olund/cool/internal/core/service"
 	"github.com/olund/cool/internal/migrations"
@@ -44,12 +44,12 @@ func (a *App) Run(ctx context.Context, w io.Writer, getenv func(string) string, 
 	}
 	defer conn.Close(ctx)
 
-	authorDb := author.New(conn)
+	todoDb := todo.New(conn)
 
-	authorStore := author.NewAuthorStore(authorDb)
-	authorService := service.NewAuthorService(authorStore)
-	
-	server := ownhttp.NewServer(authorService)
+	todoStore := todo.NewTodoStore(todoDb)
+	todoService := service.NewTodoService(todoStore)
+
+	server := ownhttp.NewServer(todoService)
 
 	httpServer := &http.Server{
 		Addr:    net.JoinHostPort(config.Host, config.Port),

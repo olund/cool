@@ -16,7 +16,7 @@ func Run(ctx context.Context, postgresConnectionString, migrationDir string) err
 
 	dbpool, err := pgxpool.New(context.Background(), postgresConnectionString)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to create connection pool: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "Unable to create connection pool: %v\n", err)
 		os.Exit(1)
 	}
 	defer dbpool.Close()

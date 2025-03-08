@@ -1,25 +1,26 @@
--- name: GetAuthor :one
-SELECT * FROM authors
+-- name: GetTodo :one
+SELECT * FROM todo
 WHERE id = $1 LIMIT 1;
 
--- name: ListAuthors :many
-SELECT * FROM authors
+-- name: ListTodos :many
+SELECT * FROM todo
 ORDER BY name;
 
--- name: CreateAuthor :one
-INSERT INTO authors (
-    name, bio
+-- name: CreateTodo :one
+INSERT INTO todo (
+    name, description
 ) VALUES (
              $1, $2
          )
     RETURNING *;
 
--- name: UpdateAuthor :exec
-UPDATE authors
+-- name: UpdateTodo :exec
+UPDATE todo
 set name = $2,
-    bio = $3
+    description = $3,
+    done = $4
 WHERE id = $1;
 
--- name: DeleteAuthor :exec
-DELETE FROM authors
+-- name: DeleteTodo :exec
+DELETE FROM todo
 WHERE id = $1;

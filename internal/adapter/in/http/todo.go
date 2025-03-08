@@ -8,21 +8,21 @@ import (
 	"strconv"
 )
 
-func GetAuthorById(authors ports.Authors) func(w http.ResponseWriter, r *http.Request) {
+func GetTodoById(todos ports.Todos) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		authorIdStr := r.PathValue("id")
-		slog.InfoContext(r.Context(), "GetAuthorsById", "path", r.URL.Path)
-		authorId, err := strconv.ParseInt(authorIdStr, 10, 64)
+		todoIdStr := r.PathValue("id")
+		slog.InfoContext(r.Context(), "GetTodoById", "path", r.URL.Path)
+		todoId, err := strconv.ParseInt(todoIdStr, 10, 64)
 		if err != nil {
-			slog.ErrorContext(r.Context(), "GetAuthorById", "error", err)
+			slog.ErrorContext(r.Context(), "GetTodoById", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		found, err := authors.GetById(r.Context(), authorId)
+		found, err := todos.GetById(r.Context(), todoId)
 		if err != nil {
-			slog.ErrorContext(r.Context(), "failed to list authors", slog.String("err", err.Error()))
+			slog.ErrorContext(r.Context(), "failed to list todos", slog.String("err", err.Error()))
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
@@ -33,27 +33,27 @@ func GetAuthorById(authors ports.Authors) func(w http.ResponseWriter, r *http.Re
 	}
 }
 
-func CreateAuthor(authors ports.Authors) http.HandlerFunc {
+func CreateTodo(todos ports.Todos) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		createAuthorRequest, problems, err := decodeValid[domain.CreateAuthorRequest](r)
+		createTodoRequest, problems, err := decodeValid[domain.CreateTodoRequest](r)
 
 		if len(problems) > 0 {
-			slog.WarnContext(r.Context(), "CreateAuthor", "problems", problems)
+			slog.WarnContext(r.Context(), "CreateTodo", "problems", problems)
 			if err := encode(w, r, http.StatusBadRequest, HttpError{Error: "Bad Request"}); err != nil {
-				slog.ErrorContext(r.Context(), "CreateAuthor", "error", err)
+				slog.ErrorContext(r.Context(), "CreateTodo", "error", err)
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			}
 			return
 		}
 
-		author, err := authors.Create(r.Context(), createAuthorRequest)
+		todo, err := todos.Create(r.Context(), createTodoRequest)
 		if err != nil {
-			slog.ErrorContext(r.Context(), "failed to create author", slog.String("err", err.Error()))
+			slog.ErrorContext(r.Context(), "failed to create todo", slog.String("err", err.Error()))
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		}
 
-		if err := encode(w, r, http.StatusCreated, author); err != nil {
+		if err := encode(w, r, http.StatusCreated, todo); err != nil {
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		}
 	}

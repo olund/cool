@@ -2,14 +2,15 @@
 // versions:
 //   sqlc v1.28.0
 
-package author
+package todo
 
 import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type Author struct {
-	ID   int64
-	Name string
-	Bio  pgtype.Text
+type Todo struct {
+	ID          int64
+	Name        string
+	Description pgtype.Text
+	Done        pgtype.Bool
 }

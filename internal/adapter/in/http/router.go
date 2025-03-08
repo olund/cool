@@ -5,16 +5,16 @@ import (
 	"net/http"
 )
 
-func NewServer(authors ports.Authors) http.Handler {
+func NewServer(todos ports.Todos) http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /health", Health())
 
 	mux.HandleFunc("GET /hello", GetHelloWorld())
 
-	// Authors
-	mux.HandleFunc("POST /author", LoggingMiddleware(CreateAuthor(authors)))
-	mux.HandleFunc("GET /author/{id}", LoggingMiddleware(GetAuthorById(authors)))
+	// Todos
+	mux.HandleFunc("POST /todo", LoggingMiddleware(CreateTodo(todos)))
+	mux.HandleFunc("GET /todo/{id}", LoggingMiddleware(GetTodoById(todos)))
 
 	return mux
 }

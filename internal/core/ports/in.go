@@ -5,8 +5,8 @@ import (
 	"github.com/olund/cool/internal/core/domain"
 )
 
-type Authors interface {
-	ListAll(ctx context.Context) ([]domain.Author, error)
-	Create(ctx context.Context, req domain.CreateAuthorRequest) (domain.Author, error)
-	GetById(ctx context.Context, id int64) (domain.Author, error)
+type Todos interface {
+	ListAll(ctx context.Context) ([]domain.Todo, error)
+	Create(ctx context.Context, req domain.CreateTodoRequest) (domain.Todo, error)
+	GetById(ctx context.Context, id int64) (domain.Todo, error)
 }

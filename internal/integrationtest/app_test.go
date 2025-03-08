@@ -29,7 +29,7 @@ func TestMain(m *testing.M) {
 	app := internal.NewApp()
 
 	postgresContainer, err := postgres.Run(ctx,
-		"postgres:16-alpine",
+		"postgres:17-alpine",
 		postgres.WithDatabase("test"),
 		postgres.WithUsername("user"),
 		postgres.WithPassword("password"),
@@ -84,18 +84,18 @@ func TestApp_HelloWorld(t *testing.T) {
 
 }
 
-func TestApp_Authors(t *testing.T) {
+func TestApp_Todo(t *testing.T) {
 
-	t.Run("Create authors - no name - bad request", func(t *testing.T) {
+	t.Run("Create todo - no name - bad request", func(t *testing.T) {
 		requestBodyWithoutName := struct {
-			Bio string `json:"bio"`
+			Description string `json:"description"`
 		}{
-			Bio: "Neque porro quisquam est qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit",
+			Description: "Neque porro quisquam est qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit",
 		}
 
 		apitest.New().
 			EnableNetworking(http.DefaultClient).
-			Postf("http://%s:%s/author", cfg.Host, cfg.Port).
+			Postf("http://%s:%s/todo", cfg.Host, cfg.Port).
 			JSON(requestBodyWithoutName).
 			Expect(t).
 			Status(http.StatusBadRequest).
@@ -103,7 +103,7 @@ func TestApp_Authors(t *testing.T) {
 			End()
 	})
 
-	t.Run("Create authors - no bio - bad request", func(t *testing.T) {
+	t.Run("Create todo - no description - bad request", func(t *testing.T) {
 		requestBodyWithoutName := struct {
 			Name string `json:"name"`
 		}{
@@ -112,7 +112,7 @@ func TestApp_Authors(t *testing.T) {
 
 		apitest.New().
 			EnableNetworking(http.DefaultClient).
-			Postf("http://%s:%s/author", cfg.Host, cfg.Port).
+			Postf("http://%s:%s/todo", cfg.Host, cfg.Port).
 			JSON(requestBodyWithoutName).
 			Expect(t).
 			Status(http.StatusBadRequest).
@@ -120,26 +120,27 @@ func TestApp_Authors(t *testing.T) {
 			End()
 	})
 
-	t.Run("Create one author, and then get it by id", func(t *testing.T) {
-		type authorRequest struct {
-			Name string `json:"name"`
-			Bio  string `json:"bio"`
+	t.Run("Create one todo, and then get it by id", func(t *testing.T) {
+		type todoRequest struct {
+			Name        string `json:"name"`
+			Description string `json:"description"`
 		}
-		type authorResponse struct {
-			Id   int64  `json:"id"`
-			Name string `json:"name"`
-			Bio  string `json:"bio"`
-		}
-
-		body := authorRequest{
-			Name: "test1",
-			Bio:  "Neque porro quisquam est qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit",
+		type todoResponse struct {
+			Id          int64  `json:"id"`
+			Name        string `json:"name"`
+			Description string `json:"description"`
+			Done        bool   `json:"done"`
 		}
 
-		createResponseBody := authorResponse{}
+		body := todoRequest{
+			Name:        "test1",
+			Description: "Neque porro quisquam est qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit",
+		}
+
+		createResponseBody := todoResponse{}
 		apitest.New().
 			EnableNetworking(http.DefaultClient).
-			Postf("http://%s:%s/author", cfg.Host, cfg.Port).
+			Postf("http://%s:%s/todo", cfg.Host, cfg.Port).
 			JSON(body).
 			Expect(t).
 			Status(http.StatusCreated).
@@ -147,12 +148,13 @@ func TestApp_Authors(t *testing.T) {
 
 		assert.NotEmpty(t, createResponseBody.Id)
 		assert.Equal(t, createResponseBody.Name, body.Name)
-		assert.Equal(t, createResponseBody.Bio, body.Bio)
+		assert.Equal(t, createResponseBody.Description, body.Description)
+		assert.False(t, createResponseBody.Done)
 
-		getByIdResponseBody := authorResponse{}
+		getByIdResponseBody := todoResponse{}
 		apitest.New().
 			EnableNetworking(http.DefaultClient).
-			Getf("http://%s:%s/author/%d", cfg.Host, cfg.Port, createResponseBody.Id).
+			Getf("http://%s:%s/todo/%d", cfg.Host, cfg.Port, createResponseBody.Id).
 			JSON(body).
 			Expect(t).
 			Status(http.StatusOK).
