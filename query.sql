@@ -4,7 +4,7 @@ WHERE id = ? LIMIT 1;
 
 -- name: ListTodos :many
 SELECT * FROM todo
-ORDER BY name;
+ORDER BY id DESC;
 
 -- name: CreateTodo :one
 INSERT INTO todo (

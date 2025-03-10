@@ -1,12 +1,19 @@
 package domain
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
 
 type Todo struct {
 	Id          int64
 	Name        string
 	Description string
 	Done        bool
+}
+
+func (t Todo) String() string {
+	return fmt.Sprintf("%d: %s - %s - %t", t.Id, t.Name, t.Description, t.Done)
 }
 
 type CreateTodoRequest struct {
