@@ -175,12 +175,15 @@ func EditTodos(todoService ports.Todos) func(c *cli.Context) error {
 			if err != nil {
 				if err.Error() == "^C" {
 					choicesPrompt := promptui.Select{
-						Label: "What do you want to do?",
-						Items: []string{"Add", "List"},
+						Label:        "What do you want to do?",
+						Items:        []string{"Add", "List", "Exit"},
+						HideSelected: true,
 					}
 
 					_, result, err := choicesPrompt.Run()
 					switch result {
+					case "Exit":
+						return nil
 					case "List":
 						continue
 					case "Add":
