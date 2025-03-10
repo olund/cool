@@ -3,6 +3,7 @@ package todo
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"github.com/olund/cool/internal/core/domain"
 	"github.com/olund/cool/internal/core/ports"
 )
@@ -52,6 +53,22 @@ func (s *TodoStore) ListTodos(ctx context.Context) ([]domain.Todo, error) {
 		ret = append(ret, ToTodo(todo))
 	}
 	return ret, nil
+}
+
+func (s *TodoStore) UpdateDone(ctx context.Context, request domain.UpdateDoneRequest) error {
+	err := s.queries.UpdateTodoDoneState(ctx, UpdateTodoDoneStateParams{
+		Done: sql.NullBool{
+			Bool:  request.Done,
+			Valid: true,
+		},
+		ID: request.Id,
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed persist done state for todo: %d: %w", request.Id, err)
+	}
+
+	return nil
 }
 
 func ToTodo(todo Todo) domain.Todo {

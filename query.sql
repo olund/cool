@@ -21,6 +21,11 @@ set name = ?,
     done = ?
 WHERE id = ?;
 
+-- name: UpdateTodoDoneState :exec
+UPDATE todo
+set done = ?
+WHERE id = ?;
+
 -- name: DeleteTodo :exec
 DELETE FROM todo
 WHERE id = ?;

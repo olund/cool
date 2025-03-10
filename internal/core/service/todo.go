@@ -34,3 +34,14 @@ func (s *TodoService) ListAll(ctx context.Context) ([]domain.Todo, error) {
 
 	return todos, nil
 }
+
+func (s *TodoService) UpdateDone(ctx context.Context, request domain.UpdateDoneRequest) error {
+	if len(request.Valid(ctx)) > 0 {
+		return fmt.Errorf("%T is not valid", request)
+	}
+
+	if err := s.todoStore.UpdateDone(ctx, request); err != nil {
+		return fmt.Errorf("failed to update done: %w", err)
+	}
+	return nil
+}

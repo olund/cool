@@ -32,3 +32,16 @@ func (c CreateTodoRequest) Valid(ctx context.Context) map[string]string {
 	}
 	return problems
 }
+
+type UpdateDoneRequest struct {
+	Id   int64 `json:"id"`
+	Done bool  `json:"done"`
+}
+
+func (c UpdateDoneRequest) Valid(ctx context.Context) map[string]string {
+	problems := make(map[string]string)
+	if c.Id < 0 {
+		problems["Id"] = "Id must be a positive number"
+	}
+	return problems
+}

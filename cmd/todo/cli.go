@@ -157,10 +157,17 @@ func ListTodos(todoService ports.Todos) func(c *cli.Context) error {
 				return fmt.Errorf("prompt select: %w", err)
 			}
 
-			todos[index].Done = !todos[index].Done
-			// todo: update database as well.
+			currentTodo := todos[index]
+			newDoneState := !currentTodo.Done
+			if err := todoService.UpdateDone(c.Context, domain.UpdateDoneRequest{
+				Id:   currentTodo.Id,
+				Done: newDoneState,
+			}); err != nil {
+				return fmt.Errorf("failed to update done: %w", err)
+			}
 
-			//_, _ = fmt.Fprintf(os.Stdout, "Selected %d: %s\n", index, td)
+			currentTodo.Done = newDoneState
+			todos[index] = currentTodo
 		}
 
 		//for _, td := range todos {
