@@ -21,6 +21,20 @@ import (
 
 var cliApp *cli.App
 
+var listTemplates = &promptui.SelectTemplates{
+	Label:    "{{ . }}",
+	Active:   "\U0001F336 {{ .Name | cyan }} ({{if .Done }}\U00002714{{else}}\U00002716{{end}})",
+	Inactive: "  {{ .Name | cyan }} ({{if .Done }}\U00002714{{else}}\U00002716{{end}})",
+	Selected: "\U0001F336 {{ .Name | cyan }} {{ .Done | red }}",
+
+	Details: `
+--------- Todo ----------
+{{ "Id:" | faint }}	{{ .Id }}
+{{ "Name:" | faint }}	{{ .Name }}
+{{ "Description:" | faint }}	{{ .Description }}
+{{ "Done:" | faint }}	{{ .Done }}`,
+}
+
 func main() {
 	// DB
 	db, err := sql.Open("sqlite", "todo.db")
@@ -123,25 +137,9 @@ func innerAddTodo(ctx context.Context, todos ports.Todos) error {
 	return nil
 }
 
-var listTemplates = &promptui.SelectTemplates{
-	Label:    "{{ . }}",
-	Active:   "\U0001F336 {{ .Name | cyan }} ({{if .Done }}\U00002714{{else}}\U00002716{{end}})",
-	Inactive: "  {{ .Name | cyan }} ({{if .Done }}\U00002714{{else}}\U00002716{{end}})",
-	Selected: "\U0001F336 {{ .Name | cyan }} {{ .Done | red }}",
-
-	Details: `
---------- Todo ----------
-{{ "Id:" | faint }}	{{ .Id }}
-{{ "Name:" | faint }}	{{ .Name }}
-{{ "Description:" | faint }}	{{ .Description }}
-{{ "Done:" | faint }}	{{ .Done }}`,
-}
-
 func ListTodos(todoService ports.Todos) func(c *cli.Context) error {
 	return func(c *cli.Context) error {
-
 		todos, err := todoService.ListAll(c.Context)
-
 		if err != nil {
 			slog.ErrorContext(c.Context, "List", slog.String("err", err.Error()))
 			return fmt.Errorf("failed to list todos: %w", err)
@@ -150,74 +148,38 @@ func ListTodos(todoService ports.Todos) func(c *cli.Context) error {
 		index := -1
 
 		for {
-			prompt := promptui.Select{
-				HideSelected: true,
-				Label:        "Todos",
-				Items:        todos,
-				CursorPos:    index,
-				Templates:    listTemplates,
-				Size:         10,
-				Searcher: func(input string, index int) bool {
-					td := todos[index]
-					return strings.Contains(strings.ToLower(td.Name), strings.ToLower(input))
-				},
-			}
-
+			prompt := listTodoPrompt(todos, index)
 			index, _, err = prompt.Run()
 			if err != nil {
 				return err
 			}
-
-			currentTodo := todos[index]
-			newDoneState := !currentTodo.Done
-			if err := todoService.UpdateDone(c.Context, domain.UpdateDoneRequest{
-				Id:   currentTodo.Id,
-				Done: newDoneState,
-			}); err != nil {
-				return fmt.Errorf("failed to update done: %w", err)
+			if err := toggleTodoDoneState(c, todos, index, todoService); err != nil {
+				return err
 			}
-
-			currentTodo.Done = newDoneState
-			todos[index] = currentTodo
 		}
 	}
 }
 
 func EditTodos(todoService ports.Todos) func(c *cli.Context) error {
 	return func(c *cli.Context) error {
-
-		todos, err := todoService.ListAll(c.Context)
-
+		todos, err := loadTodos(c.Context, todoService)
 		if err != nil {
-			slog.ErrorContext(c.Context, "List", slog.String("err", err.Error()))
-			return fmt.Errorf("failed to list todos: %w", err)
+			return err
 		}
 
 		index := -1
 
 		for {
-			prompt := promptui.Select{
-				HideSelected: true,
-				Label:        "Todos",
-				Items:        todos,
-				CursorPos:    index,
-				Templates:    listTemplates,
-				Size:         10,
-				Searcher: func(input string, index int) bool {
-					td := todos[index]
-					return strings.Contains(strings.ToLower(td.Name), strings.ToLower(input))
-				},
-			}
-
+			prompt := listTodoPrompt(todos, index)
 			index, _, err = prompt.Run()
 			if err != nil {
 				if err.Error() == "^C" {
-					otherPrompt := promptui.Select{
+					choicesPrompt := promptui.Select{
 						Label: "What do you want to do?",
 						Items: []string{"Add", "List"},
 					}
 
-					_, result, err := otherPrompt.Run()
+					_, result, err := choicesPrompt.Run()
 					switch result {
 					case "List":
 						continue
@@ -226,11 +188,10 @@ func EditTodos(todoService ports.Todos) func(c *cli.Context) error {
 							slog.ErrorContext(c.Context, "innerAddTodo", slog.String("err", err.Error()))
 						}
 
-						// reload todos:
-						todos, err = todoService.ListAll(c.Context)
+						// Reload todos
+						todos, err = loadTodos(c.Context, todoService)
 						if err != nil {
-							slog.ErrorContext(c.Context, "List", slog.String("err", err.Error()))
-							return fmt.Errorf("failed to list todos: %w", err)
+							return err
 						}
 
 						continue
@@ -244,17 +205,49 @@ func EditTodos(todoService ports.Todos) func(c *cli.Context) error {
 				}
 			}
 
-			currentTodo := todos[index]
-			newDoneState := !currentTodo.Done
-			if err := todoService.UpdateDone(c.Context, domain.UpdateDoneRequest{
-				Id:   currentTodo.Id,
-				Done: newDoneState,
-			}); err != nil {
-				return fmt.Errorf("failed to update done: %w", err)
+			if err := toggleTodoDoneState(c, todos, index, todoService); err != nil {
+				return err
 			}
-
-			currentTodo.Done = newDoneState
-			todos[index] = currentTodo
 		}
 	}
+}
+
+func loadTodos(ctx context.Context, todoService ports.Todos) ([]domain.Todo, error) {
+	todos, err := todoService.ListAll(ctx)
+	if err != nil {
+		slog.ErrorContext(ctx, "List", slog.String("err", err.Error()))
+		return nil, fmt.Errorf("failed to list todos: %w", err)
+	}
+	return todos, nil
+}
+
+func toggleTodoDoneState(c *cli.Context, todos []domain.Todo, index int, todoService ports.Todos) error {
+	currentTodo := todos[index]
+	newDoneState := !currentTodo.Done
+	if err := todoService.UpdateDone(c.Context, domain.UpdateDoneRequest{
+		Id:   currentTodo.Id,
+		Done: newDoneState,
+	}); err != nil {
+		return fmt.Errorf("failed to update done: %w", err)
+	}
+
+	currentTodo.Done = newDoneState
+	todos[index] = currentTodo
+	return nil
+}
+
+func listTodoPrompt(todos []domain.Todo, index int) promptui.Select {
+	prompt := promptui.Select{
+		HideSelected: true,
+		Label:        "Todos",
+		Items:        todos,
+		CursorPos:    index,
+		Templates:    listTemplates,
+		Size:         10,
+		Searcher: func(input string, index int) bool {
+			td := todos[index]
+			return strings.Contains(strings.ToLower(td.Name), strings.ToLower(input))
+		},
+	}
+	return prompt
 }
