@@ -19,6 +19,8 @@ import (
 	"strings"
 )
 
+var cliApp *cli.App
+
 func main() {
 	// DB
 	db, err := sql.Open("sqlite", "todo.db")
@@ -35,10 +37,10 @@ func main() {
 	todoStore := todo.NewTodoStore(todoDb)
 	todoService := service.NewTodoService(todoStore)
 
-	cliApp := &cli.App{
+	cliApp = &cli.App{
 		Name:           "Todo",
 		Usage:          "A CLI todo list application",
-		DefaultCommand: "list",
+		DefaultCommand: "edit",
 		Commands: []*cli.Command{
 			{
 				Name:    "add",
@@ -52,6 +54,12 @@ func main() {
 				Usage:   "List all todos",
 				Action:  ListTodos(todoService),
 			},
+			{
+				Name:    "edit",
+				Aliases: []string{""},
+				Usage:   "Edit todos",
+				Action:  EditTodos(todoService),
+			},
 		},
 	}
 
@@ -63,54 +71,70 @@ func main() {
 
 func AddTodo(todos ports.Todos) func(c *cli.Context) error {
 	return func(c *cli.Context) error {
-		// Todo validate input
-
-		namePrompt := promptui.Prompt{
-			Label: "Name",
-			Validate: func(input string) error {
-				if input == "" {
-					return errors.New("name cannot be empty")
-				}
-				if len(input) < 3 {
-					return errors.New("name needs to be at least 3 characters")
-				}
-				return nil
-			},
-		}
-
-		name, err := namePrompt.Run()
-		if err != nil {
-			return err
-		}
-
-		descriptionPrompt := promptui.Prompt{
-			Label: "Description",
-			Validate: func(input string) error {
-				if input == "" {
-					return errors.New("description cannot be empty")
-				}
-				return nil
-			},
-		}
-
-		description, err := descriptionPrompt.Run()
-		if err != nil {
-			return err
-		}
-
-		create, err := todos.Create(c.Context, domain.CreateTodoRequest{
-			Name:        name,
-			Description: description,
-		})
-
-		if err != nil {
-			slog.ErrorContext(c.Context, "add", slog.String("err", err.Error()))
-			return fmt.Errorf("failed to create todo: %w", err)
-		}
-
-		_, _ = fmt.Fprintf(os.Stdout, "Added Todo %d: %s, %s\n", create.Id, create.Name, create.Description)
-		return nil
+		return innerAddTodo(c.Context, todos)
 	}
+}
+
+func innerAddTodo(ctx context.Context, todos ports.Todos) error {
+	namePrompt := promptui.Prompt{
+		Label: "Name",
+		Validate: func(input string) error {
+			if input == "" {
+				return errors.New("name cannot be empty")
+			}
+			if len(input) < 3 {
+				return errors.New("name needs to be at least 3 characters")
+			}
+			return nil
+		},
+	}
+
+	name, err := namePrompt.Run()
+	if err != nil {
+		return err
+	}
+
+	descriptionPrompt := promptui.Prompt{
+		Label: "Description",
+		Validate: func(input string) error {
+			if input == "" {
+				return errors.New("description cannot be empty")
+			}
+			return nil
+		},
+	}
+
+	description, err := descriptionPrompt.Run()
+	if err != nil {
+		return err
+	}
+
+	create, err := todos.Create(ctx, domain.CreateTodoRequest{
+		Name:        name,
+		Description: description,
+	})
+
+	if err != nil {
+		slog.ErrorContext(ctx, "add", slog.String("err", err.Error()))
+		return fmt.Errorf("failed to create todo: %w", err)
+	}
+
+	_, _ = fmt.Fprintf(os.Stdout, "Added Todo %d: %s, %s\n", create.Id, create.Name, create.Description)
+	return nil
+}
+
+var listTemplates = &promptui.SelectTemplates{
+	Label:    "{{ . }}",
+	Active:   "\U0001F336 {{ .Name | cyan }} ({{if .Done }}\U00002714{{else}}\U00002716{{end}})",
+	Inactive: "  {{ .Name | cyan }} ({{if .Done }}\U00002714{{else}}\U00002716{{end}})",
+	Selected: "\U0001F336 {{ .Name | cyan }} {{ .Done | red }}",
+
+	Details: `
+--------- Todo ----------
+{{ "Id:" | faint }}	{{ .Id }}
+{{ "Name:" | faint }}	{{ .Name }}
+{{ "Description:" | faint }}	{{ .Description }}
+{{ "Done:" | faint }}	{{ .Done }}`,
 }
 
 func ListTodos(todoService ports.Todos) func(c *cli.Context) error {
@@ -126,26 +150,13 @@ func ListTodos(todoService ports.Todos) func(c *cli.Context) error {
 		index := -1
 
 		for {
-
 			prompt := promptui.Select{
 				HideSelected: true,
 				Label:        "Todos",
 				Items:        todos,
 				CursorPos:    index,
-				Templates: &promptui.SelectTemplates{
-					Label:    "{{ . }}",
-					Active:   "\U0001F336 {{ .Name | cyan }} ({{if .Done }}\U00002714{{else}}\U00002716{{end}})",
-					Inactive: "  {{ .Name | cyan }} ({{if .Done }}\U00002714{{else}}\U00002716{{end}})",
-					Selected: "\U0001F336 {{ .Name | cyan }} {{ .Done | red }}",
-
-					Details: `
---------- Todo ----------
-{{ "Id:" | faint }}	{{ .Id }}
-{{ "Name:" | faint }}	{{ .Name }}
-{{ "Heat Unit:" | faint }}	{{ .Description }}
-{{ "Peppers:" | faint }}	{{ .Done }}`,
-				},
-				Size: 10,
+				Templates:    listTemplates,
+				Size:         10,
 				Searcher: func(input string, index int) bool {
 					td := todos[index]
 					return strings.Contains(strings.ToLower(td.Name), strings.ToLower(input))
@@ -154,7 +165,7 @@ func ListTodos(todoService ports.Todos) func(c *cli.Context) error {
 
 			index, _, err = prompt.Run()
 			if err != nil {
-				return fmt.Errorf("prompt select: %w", err)
+				return err
 			}
 
 			currentTodo := todos[index]
@@ -169,11 +180,81 @@ func ListTodos(todoService ports.Todos) func(c *cli.Context) error {
 			currentTodo.Done = newDoneState
 			todos[index] = currentTodo
 		}
+	}
+}
 
-		//for _, td := range todos {
-		//	_, _ = fmt.Fprintf(os.Stdout, "Todo %d: %s\n", td.Id, td.Name)
-		//}
+func EditTodos(todoService ports.Todos) func(c *cli.Context) error {
+	return func(c *cli.Context) error {
 
-		return nil
+		todos, err := todoService.ListAll(c.Context)
+
+		if err != nil {
+			slog.ErrorContext(c.Context, "List", slog.String("err", err.Error()))
+			return fmt.Errorf("failed to list todos: %w", err)
+		}
+
+		index := -1
+
+		for {
+			prompt := promptui.Select{
+				HideSelected: true,
+				Label:        "Todos",
+				Items:        todos,
+				CursorPos:    index,
+				Templates:    listTemplates,
+				Size:         10,
+				Searcher: func(input string, index int) bool {
+					td := todos[index]
+					return strings.Contains(strings.ToLower(td.Name), strings.ToLower(input))
+				},
+			}
+
+			index, _, err = prompt.Run()
+			if err != nil {
+				if err.Error() == "^C" {
+					otherPrompt := promptui.Select{
+						Label: "What do you want to do?",
+						Items: []string{"Add", "List"},
+					}
+
+					_, result, err := otherPrompt.Run()
+					switch result {
+					case "List":
+						continue
+					case "Add":
+						if err := innerAddTodo(c.Context, todoService); err != nil {
+							slog.ErrorContext(c.Context, "innerAddTodo", slog.String("err", err.Error()))
+						}
+
+						// reload todos:
+						todos, err = todoService.ListAll(c.Context)
+						if err != nil {
+							slog.ErrorContext(c.Context, "List", slog.String("err", err.Error()))
+							return fmt.Errorf("failed to list todos: %w", err)
+						}
+
+						continue
+					}
+
+					if err != nil {
+						return err
+					}
+				} else {
+					return fmt.Errorf("prompt failed: %w", err)
+				}
+			}
+
+			currentTodo := todos[index]
+			newDoneState := !currentTodo.Done
+			if err := todoService.UpdateDone(c.Context, domain.UpdateDoneRequest{
+				Id:   currentTodo.Id,
+				Done: newDoneState,
+			}); err != nil {
+				return fmt.Errorf("failed to update done: %w", err)
+			}
+
+			currentTodo.Done = newDoneState
+			todos[index] = currentTodo
+		}
 	}
 }
