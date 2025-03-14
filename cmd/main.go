@@ -20,8 +20,11 @@ func main() {
 
 	getenv := func(s string) string {
 		switch s {
-		case "POSTGRES_CONNECTION_STRING":
-			return "postgresql://postgres:mysecretpassword@localhost:5432/postgres"
+		case "MIGRATIONS_DIR":
+			return "../internal/migrations"
+		case "DB_NAME":
+			return "todo/todo.db"
+
 		}
 
 		return s

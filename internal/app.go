@@ -35,7 +35,12 @@ func (a *App) Run(ctx context.Context, w io.Writer, getenv func(string) string, 
 	defer cancel()
 
 	// DB
-	db, err := sql.Open("sqlite", ":memory:")
+	dbName := getenv("DB_NAME")
+	if dbName == "" {
+		dbName = ":memory:"
+	}
+
+	db, err := sql.Open("sqlite", dbName)
 	if err != nil {
 		return err
 	}

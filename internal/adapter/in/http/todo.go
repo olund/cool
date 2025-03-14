@@ -8,6 +8,25 @@ import (
 	"strconv"
 )
 
+func ListTodos(todoService ports.Todos) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		todos, err := todoService.ListAll(r.Context())
+		if err != nil {
+			slog.ErrorContext(r.Context(), "failed to list todos", slog.String("err", err.Error()))
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		if todos == nil {
+			todos = []domain.Todo{}
+		}
+
+		if err := encode(w, r, http.StatusOK, todos); err != nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		}
+	}
+}
+
 func GetTodoById(todos ports.Todos) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 

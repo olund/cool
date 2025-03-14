@@ -6,10 +6,10 @@ import (
 )
 
 type Todo struct {
-	Id          int64
-	Name        string
-	Description string
-	Done        bool
+	Id          int64  `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Done        bool   `json:"done"`
 }
 
 func (t Todo) String() string {
