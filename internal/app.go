@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -57,7 +56,8 @@ func (a *App) Run(ctx context.Context, w io.Writer, getenv func(string) string, 
 	server := ownhttp.NewServer(todoService)
 
 	httpServer := &http.Server{
-		Addr:    net.JoinHostPort(config.Host, config.Port),
+		//Addr:    net.JoinHostPort(config.Host, config.Port),
+		Addr:    fmt.Sprintf(":%s", config.Port),
 		Handler: server,
 	}
 	go func() {
